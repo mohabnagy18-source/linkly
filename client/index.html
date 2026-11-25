@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linkly — URL Shortener</title>
+<style>
+:root{--bg:#0b1020;--card:#151c33;--card2:#1b2442;--accent:#5b8cff;--accent2:#38d9a9;--text:#e8ecf8;--muted:#8b94b8;--border:#263056}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px 60px}
+header{text-align:center;padding:36px 0 28px}
+h1{font-size:2.4rem;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);margin-top:8px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:18px}
+.row{display:flex;gap:10px}
+input,textarea{flex:1;background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:12px 14px;font-size:1rem;outline:none}
+input:focus{border-color:var(--accent)}
+button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:12px 20px;font-size:1rem;cursor:pointer;font-weight:600;white-space:nowrap}
+button:hover{filter:brightness(1.1)}
+button.ghost{background:var(--card2);color:var(--text);border:1px solid var(--border);padding:8px 12px;font-size:.85rem}
+.link-item{display:flex;align-items:center;gap:10px;padding:14px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.link-item:last-child{border-bottom:none}
+.short{color:var(--accent2);font-weight:700;text-decoration:none;min-width:170px}
+.long{color:var(--muted);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.meta{margin-left:auto;display:flex;align-items:center;gap:8px}
+.badge{background:var(--card2);border-radius:20px;padding:4px 12px;font-size:.8rem;color:var(--muted)}
+.stats{margin-top:10px;background:var(--card2);border-radius:10px;padding:14px;width:100%}
+.bars{display:flex;align-items:flex-end;gap:6px;height:90px;margin-top:10px}
+.bar{flex:1;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:4px 4px 0 0;min-height:3px;position:relative}
+.bar span{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:.65rem;color:var(--muted)}
+.bar b{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:.7rem;color:var(--text)}
+.dates{height:22px}
+.err{color:#ff7b8a;font-size:.9rem;margin-top:8px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent2);color:#06281f;padding:10px 22px;border-radius:24px;font-weight:700;display:none}
+h2{font-size:1.05rem;color:var(--muted);margin-bottom:6px;font-weight:600}
+@media(max-width:560px){.meta{margin-left:0;width:100%}.short{min-width:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>Linkly</h1><p class="sub">Shorten links. Track every click.</p></header>
+<div class="card">
+  <div class="row"><input id="url" type="url" placeholder="Paste a long URL… (https://)"><button id="go">Shorten</button></div>
+  <div class="err" id="err"></div>
+</div>
+<div class="card"><h2>Your links</h2><div id="list"><p class="sub">Loading…</p></div></div>
+</div>
+<div class="toast" id="toast">Copied!</div>
+<script>
+const API='https://linklymn.runasp.net';
+const SHORT=API+'/r/';
+const $=id=>document.getElementById(id);
+function toast(){const t=$('toast');t.style.display='block';setTimeout(()=>t.style.display='none',1400)}
+async function load(){
+  try{
+    const links=await(await fetch(API+'/api/links')).json();
+    const el=$('list');
+    if(!links.length){el.innerHTML='<p class="sub">No links yet — shorten your first one above.</p>';return}
+    el.innerHTML='';
+    for(const l of links){
+      const d=document.createElement('div');d.className='link-item';
+      d.innerHTML=`<a class="short" href="${SHORT}${l.code}" target="_blank">linklymn.runasp.net/r/${l.code}</a>
+        <span class="long" title="${l.url}">${l.url}</span>
+        <div class="meta"><span class="badge">${l.clicks} clicks</span>
+        <button class="ghost" data-copy="${SHORT}${l.code}">Copy</button>
+        <button class="ghost" data-stats="${l.code}">Stats</button></div>
+        <div class="stats" id="st-${l.code}" style="display:none"></div>`;
+      el.appendChild(d);
+    }
+    el.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{navigator.clipboard.writeText(b.dataset.copy);toast()});
+    el.querySelectorAll('[data-stats]').forEach(b=>b.onclick=()=>toggleStats(b.dataset.stats));
+  }catch(e){$('list').innerHTML='<p class="err">Could not reach the API.</p>'}
+}
+async function toggleStats(code){
+  const box=$('st-'+code);
+  if(box.style.display==='block'){box.style.display='none';return}
+  const s=await(await fetch(`${API}/api/links/${code}/stats`)).json();
+  const days={};for(let i=6;i>=0;i--){const d=new Date(Date.now()-i*864e5);days[d.toISOString().slice(0,10)]=0}
+  for(const x of s.byDay)if(x.date in days)days[x.date]=x.count;
+  const max=Math.max(1,...Object.values(days));
+  box.innerHTML=`<b>${s.link.clicks} total clicks</b><div class="bars">`+
+    Object.entries(days).map(([d,c])=>`<div class="bar" style="height:${Math.max(3,c/max*86)}px"><b>${c||''}</b><span>${d.slice(5)}</span></div>`).join('')+
+    `</div><div class="dates"></div>`;
+  box.style.display='block';
+}
+$('go').onclick=async()=>{
+  $('err').textContent='';
+  const url=$('url').value.trim();
+  const r=await fetch(API+'/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+  const j=await r.json();
+  if(!r.ok){$('err').textContent=j.error||'Failed';return}
+  $('url').value='';load();
+};
+$('url').addEventListener('keydown',e=>{if(e.key==='Enter')$('go').click()});
+load();
+</script>
+</body>
+</html>

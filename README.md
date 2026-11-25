@@ -5,7 +5,8 @@ A link shortener with per-link click statistics. ASP.NET Core 8 minimal API + SQ
 ## Live
 - API: https://linklymn.runasp.net/api/links
 - Short redirect: https://linklymn.runasp.net/r/{code}
-- Frontend: (Vercel link in project description)
+- Frontend: https://linkly-orpin-five.vercel.app
+- API: https://linklymn.runasp.net
 
 ## Stack
 - Backend: ASP.NET Core 8 minimal APIs, EF Core (schema `linkly`), SQL Server
